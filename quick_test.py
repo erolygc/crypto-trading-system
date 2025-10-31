@@ -1,65 +1,78 @@
+#!/usr/bin/env python3
 """
-Crypto Trading System - Quick Test
-VS Code'da hızlı test için basit script
+Hızlı Sistem Testi
 """
 
+print("🚀 Crypto Trading System - Hızlı Test")
+print("=" * 40)
+
+# 1. Python sürüm kontrolü
 import sys
-import os
+print(f"✅ Python sürüm: {sys.version}")
 
-# Add current directory to Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# 2. Gerekli kütüphaneleri test et
+print("\n📦 Kütüphane Testleri:")
+try:
+    import numpy as np
+    print(f"✅ NumPy: {np.__version__}")
+except ImportError as e:
+    print(f"❌ NumPy: {e}")
 
-def test_imports():
-    """Temel import testleri"""
-    try:
-        import numpy as np
-        import pandas as pd
-        import talib
-        print("✅ Temel kütüphaneler başarıyla import edildi")
-        return True
-    except ImportError as e:
-        print(f"❌ Import hatası: {e}")
-        return False
+try:
+    import pandas as pd
+    print(f"✅ Pandas: {pd.__version__}")
+except ImportError as e:
+    print(f"❌ Pandas: {e}")
 
-def test_position_sizing():
-    """Position sizing modülü testi"""
-    try:
-        from position_sizing import PositionSizer, RiskConfig
-        
-        sizer = PositionSizer()
-        result = sizer.calculate_position_size(
-            symbol="BTCUSDT",
-            entry_price=50000,
-            stop_loss=48000,
-            portfolio_value=10000,
-            strategy_type="fixed_fractional"
-        )
-        
-        print("✅ Position Sizing çalışıyor")
-        print(f"📊 Hesaplanan pozisyon büyüklüğü: {result['size']:.2f} USDT")
-        return True
-    except Exception as e:
-        print(f"❌ Position Sizing hatası: {e}")
-        return False
+try:
+    import ccxt
+    print(f"✅ CCXT: {ccxt.__version__}")
+except ImportError as e:
+    print(f"❌ CCXT: {e}")
 
-def main():
-    """Ana test fonksiyonu"""
-    print("🚀 Crypto Trading System - Quick Test")
-    print("=" * 50)
+try:
+    import matplotlib.pyplot as plt
+    print("✅ Matplotlib: Yüklü")
+except ImportError as e:
+    print(f"❌ Matplotlib: {e}")
+
+try:
+    import requests
+    print("✅ Requests: Yüklü")
+except ImportError as e:
+    print(f"❌ Requests: {e}")
+
+try:
+    from dotenv import load_dotenv
+    print("✅ Python-dotenv: Yüklü")
+except ImportError as e:
+    print(f"❌ Python-dotenv: {e}")
+
+# 3. Position Sizer modülü test et
+print("\n🎯 Position Sizer Testi:")
+try:
+    from position_sizing import PositionSizer, RiskConfig
+    print("✅ Position Sizer modülü başarıyla import edildi!")
     
-    # Test imports
-    if not test_imports():
-        print("\n⚠️  Lütfen önce bağımlılıkları yükleyin:")
-        print("pip install -r requirements-fixed.txt")
-        return
+    # Test objesi oluştur
+    sizer = PositionSizer()
     
-    print("\n" + "-" * 30)
+    # Basit test
+    test_result = sizer.calculate_position_size(
+        symbol="BTCUSDT",
+        entry_price=45000,
+        stop_loss=43000,
+        portfolio_value=5000,
+        strategy_type="fixed_fractional"
+    )
     
-    # Test position sizing
-    test_position_sizing()
+    print(f"✅ Test pozisyonu: {test_result['size']:.2f} USDT")
+    print(f"✅ Risk: %{test_result['portfolio_risk_p_pct']:.1f}")
     
-    print("\n" + "=" * 50)
-    print("✅ Test tamamlandı!")
+except ImportError as e:
+    print(f"❌ Position Sizer: {e}")
+except Exception as e:
+    print(f"❌ Test hatası: {e}")
 
-if __name__ == "__main__":
-    main()
+print("\n" + "=" * 40)
+print("🎉 Hızlı test tamamlandı!")

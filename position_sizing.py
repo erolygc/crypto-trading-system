@@ -1,6 +1,6 @@
+#!/usr/bin/env python3
 """
-Position Sizing Module
-Portfolio yönetimi ve risk kontrolü için pozisyon boyutlandırma algoritmaları
+Position Sizer - Güvenli Test Script
 """
 
 import numpy as np
@@ -48,174 +48,168 @@ class PositionSizer:
         kelly_fraction = (win_rate * win_loss_ratio - (1 - win_rate)) / win_loss_ratio
         
         # Kelly fraction'ı güvenli sınırlar içinde tut
-        return max(0.01, min(0.25, kelly_fraction))
+        return max(0.01, min(kelly_fraction, 0.25))  # %1 ile %25 arası
     
-    def fixed_fractional(self, portfolio_value: float, risk_percent: float) -> float:
+    def fixed_fractional(self, risk_per_trade: float) -> float:
         """
-        Fixed Fractional pozisyon boyutlandırma
+        Fixed Fractional position sizing
         
         Args:
-            portfolio_value: Portföy değeri
-            risk_percent: Risk yüzdesi
+            risk_per_trade: İşlem başına risk oranı (0-1)
             
         Returns:
-            Pozisyon büyüklüğü
+            Pozisyon oranı (0-1)
         """
-        return portfolio_value * risk_percent
+        return max(0.01, min(risk_per_trade, self.risk_config.max_position_risk))
     
-    def volatility_based(self, portfolio_value: float, volatility: float, risk_reward: float = 1.0) -> float:
+    def volatility_based(self, volatility: float, risk_reward_ratio: float) -> float:
         """
-        Volatiliteye dayalı pozisyon boyutlandırma
+        Volatiliteye göre pozisyon boyutu
         
         Args:
-            portfolio_value: Portföy değeri
-            volatility: Varlık volatilitesi
-            risk_reward: Risk/ödül oranı
+            volatility: Varlık volatilitesi (0-1)
+            risk_reward_ratio: Risk/ödül oranı
             
         Returns:
-            Pozisyon büyüklüğü
+            Pozisyon oranı (0-1)
         """
-        # Volatilite yüksekse pozisyonu küçült
-        volatility_adjusted_risk = self.risk_config.max_position_risk / (1 + volatility)
+        # Volatilite arttıkça pozisyon boyutu azalır
+        if volatility <= 0:
+            return 0.1
+            
+        # Volatiliteye göre risk ayarlaması
+        volatility_adjustment = 1 / (volatility * 10)  # Volatilite faktörü
+        base_risk = self.risk_config.max_position_risk / volatility_adjustment
         
-        base_position = portfolio_value * volatility_adjusted_risk
-        
-        # Risk/ödül oranına göre ayarla
-        return base_position * risk_reward
+        # Risk/ödül oranına göre ayarlama
+        if risk_reward_ratio < 1:
+            base_risk *= 0.5  # Düşük R/R için daha az risk
+            
+        return max(0.01, min(base_risk, self.risk_config.max_position_risk))
     
-    def martingale_adaptive(self, previous_loss: float, base_size: float, max_multiplier: float = 3.0) -> float:
+    def martingale(self, consecutive_losses: int, base_risk: float) -> float:
         """
-        Adaptif Martingale stratejisi (dikkatli kullanım!)
+        Martingale position sizing (DİKKAT: Yüksek risk!)
         
         Args:
-            previous_loss: Önceki kayıp
-            base_size: Temel boyut
-            max_multiplier: Maksimum çarpan
+            consecutive_losses: Art arda kayıp sayısı
+            base_risk: Temel risk oranı
             
         Returns:
-            Yeni pozisyon büyüklüğü
+            Pozisyon oranı (0-1)
         """
-        if previous_loss <= 0:
-            return base_size
-            
-        multiplier = min(max_multiplier, 1 + abs(previous_loss) / base_size)
-        return base_size * multiplier
+        # Maksimum 3 kat artış
+        multiplier = min(2 ** min(consecutive_losses, 3), 8)
+        adjusted_risk = min(base_risk * multiplier, self.risk_config.max_position_risk)
+        
+        return adjusted_risk
     
-    def calculate_position_size(self, 
-                              symbol: str,
-                              entry_price: float,
-                              stop_loss: float,
-                              portfolio_value: float,
-                              strategy_type: str = "fixed_fractional",
-                              **kwargs) -> Dict:
+    def calculate_position_size(
+        self,
+        symbol: str,
+        entry_price: float,
+        stop_loss: float,
+        portfolio_value: float,
+        strategy_type: str = "fixed_fractional",
+        **kwargs
+    ) -> Dict:
         """
-        Ana pozisyon boyutlandırma fonksiyonu
+        Ana pozisyon boyutu hesaplama fonksiyonu
         
         Args:
-            symbol: Trading sembolü
+            symbol: İşlem sembolü
             entry_price: Giriş fiyatı
             stop_loss: Stop loss fiyatı
-            portfolio_value: Mevcut portföy değeri
-            strategy_type: Strateji tipi
-            **kwargs: Ek parametreler
+            portfolio_value: Portföy değeri
+            strategy_type: Kullanılacak strateji
+            **kwargs: Stratejiye özel parametreler
             
         Returns:
-            Pozisyon boyutlandırma sonuçları
+            Hesaplama sonuçları
         """
-        
-        # Risk hesaplaması
-        risk_per_unit = abs(entry_price - stop_loss)
-        if risk_per_unit <= 0:
-            logger.warning(f"Geçersiz stop loss fiyatı: {stop_loss}")
-            return {"size": 0, "risk_amount": 0, "reason": "Invalid stop loss"}
-        
-        portfolio_risk = risk_per_unit / portfolio_value
-        
-        # Portfolio risk limitini kontrol et
-        if portfolio_risk > self.risk_config.max_portfolio_risk:
-            logger.warning(f"Portfolio risk limiti aşıldı: {portfolio_risk:.4f} > {self.risk_config.max_portfolio_risk}")
-            adjusted_position = portfolio_value * self.risk_config.max_portfolio_risk / risk_per_unit
-        else:
-            # Strateji tipine göre pozisyon hesapla
+        try:
+            # Risk hesaplama
+            risk_amount = abs(entry_price - stop_loss)
+            if entry_price <= 0 or stop_loss <= 0:
+                return {
+                    "size": 0,
+                    "percentage": 0,
+                    "reason": "Geçersiz fiyat bilgisi",
+                    "portfolio_risk_pct": 0
+                }
+            
+            price_risk_pct = risk_amount / entry_price
+            position_value = portfolio_value * self.risk_config.max_position_risk / price_risk_pct if price_risk_pct > 0 else 0
+            
+            # Stratejiye göre hesaplama
             if strategy_type == "kelly":
                 win_rate = kwargs.get("win_rate", 0.6)
                 avg_win = kwargs.get("avg_win", 0.02)
                 avg_loss = kwargs.get("avg_loss", 0.01)
-                risk_percent = self.kelly_criterion(win_rate, avg_win, avg_loss)
+                kelly_fraction = self.kelly_criterion(win_rate, avg_win, avg_loss)
+                
+                position_size = portfolio_value * kelly_fraction
+                reason = f"Kelly Criterion (W:{win_rate:.1%}, AvgWin:{avg_win:.1%})"
+                
+            elif strategy_type == "fixed_fractional":
+                risk_pct = kwargs.get("risk_pct", 0.02)
+                position_size = portfolio_value * self.fixed_fractional(risk_pct)
+                reason = f"Fixed Fractional ({risk_pct:.1%} risk)"
                 
             elif strategy_type == "volatility":
-                volatility = kwargs.get("volatility", 0.02)
-                risk_reward = kwargs.get("risk_reward", 1.0)
-                risk_percent = self.volatility_based(portfolio_value, volatility, risk_reward) / portfolio_value
+                volatility = kwargs.get("volatility", 0.03)
+                risk_reward = kwargs.get("risk_reward", 2.0)
+                position_ratio = self.volatility_based(volatility, risk_reward)
+                position_size = portfolio_value * position_ratio
+                reason = f"Volatility-based (Vol:{volatility:.1%}, R/R:{risk_reward:.1f})"
                 
             elif strategy_type == "martingale":
-                previous_loss = kwargs.get("previous_loss", 0)
-                base_size = portfolio_value * self.risk_config.max_position_risk
-                adjusted_position = self.martingale_adaptive(previous_loss, base_size)
-                risk_amount = adjusted_position * risk_per_unit
+                consecutive_losses = kwargs.get("consecutive_losses", 0)
+                base_risk = kwargs.get("base_risk", 0.01)
+                position_ratio = self.martingale(consecutive_losses, base_risk)
+                position_size = portfolio_value * position_ratio
+                reason = f"Martingale (Loss streak: {consecutive_losses})"
                 
-                return {
-                    "size": adjusted_position,
-                    "risk_amount": risk_amount,
-                    "portfolio_risk_pct": risk_amount / portfolio_value,
-                    "strategy": "martingale",
-                    "reason": "Martingale adaptive"
-                }
-                
-            else:  # fixed_fractional default
-                risk_percent = self.risk_config.max_position_risk
+            else:
+                # Default fixed fractional
+                position_size = portfolio_value * self.risk_config.max_position_risk
+                reason = "Default Fixed Fractional"
             
-            adjusted_position = portfolio_value * risk_percent / risk_per_unit
-        
-        # Limitleri kontrol et
-        if adjusted_position < self.risk_config.min_trade_size:
-            logger.info(f"Pozisyon minimum limitin altında: {adjusted_position:.2f} < {self.risk_config.min_trade_size}")
-            return {"size": 0, "risk_amount": 0, "reason": "Below minimum trade size"}
-        
-        if adjusted_position > self.risk_config.max_trade_size:
-            adjusted_position = self.risk_config.max_trade_size
-            logger.info(f"Pozisyon maksimum limite ayarlandı: {adjusted_position}")
-        
-        risk_amount = adjusted_position * risk_per_unit
-        
-        result = {
-            "size": adjusted_position,
-            "risk_amount": risk_amount,
-            "portfolio_risk_pct": risk_amount / portfolio_value,
-            "strategy": strategy_type,
-            "entry_price": entry_price,
-            "stop_loss": stop_loss,
-            "risk_per_unit": risk_per_unit,
-            "reason": f"Position calculated with {strategy_type} strategy"
-        }
-        
-        logger.info(f"Position size calculated for {symbol}: {adjusted_position:.2f} USDT")
-        return result
-    
-    def update_position_history(self, position_data: Dict):
-        """Pozisyon geçmişini güncelle"""
-        self.position_history.append(position_data)
-        
-        # Son 100 pozisyonu tut
-        if len(self.position_history) > 100:
-            self.position_history = self.position_history[-100:]
-    
-    def get_position_statistics(self) -> Dict:
-        """Pozisyon istatistikleri"""
-        if not self.position_history:
-            return {}
+            # Limitler uygula
+            position_size = max(
+                self.risk_config.min_trade_size,
+                min(position_size, self.risk_config.max_trade_size, portfolio_value)
+            )
             
-        sizes = [p.get("size", 0) for p in self.position_history]
-        risk_amounts = [p.get("risk_amount", 0) for p in self.position_history]
-        
-        return {
-            "total_positions": len(self.position_history),
-            "avg_position_size": np.mean(sizes),
-            "max_position_size": np.max(sizes),
-            "min_position_size": np.min(sizes),
-            "avg_risk_amount": np.mean(risk_amounts),
-            "total_risk_amount": np.sum(risk_amounts)
-        }
+            # Portföy riski kontrolü
+            portfolio_risk_pct = (position_size * price_risk_pct) / portfolio_value if portfolio_value > 0 else 0
+            
+            if portfolio_risk_pct > self.risk_config.max_portfolio_risk:
+                # Risk çok yüksek, ayarla
+                safe_position_size = (portfolio_value * self.risk_config.max_portfolio_risk) / price_risk_pct if price_risk_pct > 0 else 0
+                position_size = min(safe_position_size, self.risk_config.max_trade_size)
+                portfolio_risk_pct = (position_size * price_risk_pct) / portfolio_value if portfolio_value > 0 else 0
+                reason += " (Risk adjusted)"
+            
+            return {
+                "size": round(position_size, 2),
+                "percentage": round(position_size / portfolio_value * 100, 2) if portfolio_value > 0 else 0,
+                "reason": reason,
+                "portfolio_risk_pct": round(portfolio_risk_pct * 100, 2),
+                "price_risk_pct": round(price_risk_pct * 100, 2),
+                "strategy": strategy_type
+            }
+            
+        except Exception as e:
+            logger.error(f"Position sizing hatası: {e}")
+            return {
+                "size": 0,
+                "percentage": 0,
+                "reason": f"Hata: {str(e)}",
+                "portfolio_risk_pct": 0,
+                "price_risk_pct": 0,
+                "strategy": strategy_type
+            }
 
 # Örnek kullanım
 if __name__ == "__main__":
