@@ -1,0 +1,82 @@
+# Kripto Kantitatif Trading Sistemi - Python Bağımlılıkları
+
+# Core Data Science & Analysis
+numpy>=1.21.0
+pandas>=1.3.0
+scipy>=1.7.0
+scikit-learn>=1.0.0
+
+# Technical Analysis
+TA-Lib>=0.4.25
+pandas-ta>=0.3.14
+talib-binary>=0.4.19
+vectorbt>=0.25.0
+
+# Database & Caching
+psycopg2-binary>=2.9.0
+redis>=4.1.0
+SQLAlchemy>=1.4.0
+influxdb-client>=1.24.0
+
+# Real-time Data & WebSocket
+websockets>=10.0
+aiohttp>=3.8.0
+python-socketio>=5.5.0
+ccxt>=2.0.0
+
+# Messaging & Event Streaming
+kafka-python>=2.0.2
+
+# Visualization & Monitoring
+matplotlib>=3.5.0
+seaborn>=0.11.0
+plotly>=5.5.0
+
+# Web Framework & API
+fastapi>=0.78.0
+uvicorn>=0.17.0
+requests>=2.27.0
+
+# Configuration & Logging
+pyyaml>=6.0
+python-dotenv>=0.20.0
+colorlog>=6.6.0
+rich>=12.0.0
+
+# Date & Time
+arrow>=1.2.0
+pytz>=2022.1
+
+# Async & Concurrency
+asyncio>=3.4.3
+aioredis>=2.0.0
+
+# Financial & Risk Analysis
+quantlib>=1.29
+riskparity>=0.1.2
+cvxpy>=1.2.0
+
+# Testing & Development
+pytest>=7.1.0
+black>=22.3.0
+
+# Machine Learning & Deep Learning
+tensorflow>=2.9.0
+torch>=1.12.0
+xgboost>=1.6.0
+lightgbm>=3.3.0
+
+# HTTP & API Clients
+httpx>=0.23.0
+pydantic>=1.10.0
+
+# System Management
+psutil>=5.9.0
+schedule>=1.1.0
+
+# Advanced Analytics
+statsmodels>=0.13.0
+arch>=5.0.0
+
+# Notifications
+telegram-bot-python>=20.0.0
