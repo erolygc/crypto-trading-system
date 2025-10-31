@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Hızlı Sistem Testi
+Crypto Trading System - Hızlı Test
 """
 
 print("🚀 Crypto Trading System - Hızlı Test")
@@ -48,6 +48,12 @@ try:
 except ImportError as e:
     print(f"❌ Python-dotenv: {e}")
 
+try:
+    import talib
+    print("✅ TA-Lib: Yüklü")
+except ImportError as e:
+    print(f"❌ TA-Lib: {e}")
+
 # 3. Position Sizer modülü test et
 print("\n🎯 Position Sizer Testi:")
 try:
@@ -67,7 +73,8 @@ try:
     )
     
     print(f"✅ Test pozisyonu: {test_result['size']:.2f} USDT")
-    print(f"✅ Risk: %{test_result['portfolio_risk_p_pct']:.1f}")
+    print(f"✅ Risk: %{test_result['portfolio_risk_pct']:.1f}")
+    print(f"✅ Strateji: {test_result['reason']}")
     
 except ImportError as e:
     print(f"❌ Position Sizer: {e}")
